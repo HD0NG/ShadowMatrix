@@ -1,6 +1,8 @@
 # ignore ALL files in data and results directories
 data/
 results/
+
+_dev/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

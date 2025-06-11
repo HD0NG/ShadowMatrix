@@ -14,26 +14,51 @@ def find_z_at_target(points, target_coords):
     return points[closest_point_index, 2]
 
 # --- Extinction Coefficient Function ---
+# def get_voxel_extinction(voxel, params):
+#     if voxel['class'] == 6:
+#         return np.inf
+#     elif voxel['class'] == 'building_buffer':
+#         return params.buffer_extinction
+#     elif voxel['class'] == 3:  # Vegetation classes
+#         # Density weighting (normalize if needed)
+#         density = voxel.get('density', 1)
+#         return params.base_k3 * params.vegetation_weight * (1 + params.density_weight * density)
+#     elif voxel['class'] == 4:  # Building classes
+#         # Density weighting (normalize if needed)
+#         density = voxel.get('density', 1)
+#         return params.base_k4 * params.vegetation_weight * (1 + params.density_weight * density)
+#     elif voxel['class'] == 5:  # Building classes
+#         # Density weighting (normalize if needed)
+#         density = voxel.get('density', 1)
+#         return params.base_k5 * params.vegetation_weight * (1 + params.density_weight * density)
+#         # return 0.6
+#     else:
+#         return 0.0
+
 def get_voxel_extinction(voxel, params):
-    if voxel['class'] == 6:
-        return np.inf
-    elif voxel['class'] == 'building_buffer':
-        return params.buffer_extinction
-    elif voxel['class'] == 3:  # Vegetation classes
-        # Density weighting (normalize if needed)
-        density = voxel.get('density', 1)
-        return params.base_k3 * params.vegetation_weight * (1 + params.density_weight * density)
-    elif voxel['class'] == 4:  # Building classes
-        # Density weighting (normalize if needed)
-        density = voxel.get('density', 1)
-        return params.base_k4 * params.vegetation_weight * (1 + params.density_weight * density)
-    elif voxel['class'] == 5:  # Building classes
-        # Density weighting (normalize if needed)
-        density = voxel.get('density', 1)
-        return params.base_k5 * params.vegetation_weight * (1 + params.density_weight * density)
-        # return 0.6
-    else:
+    class_weights = voxel.get('classes', {})
+    if not class_weights:
         return 0.0
+
+    extinction = 0.0
+    for cls, weight in class_weights.items():
+        if cls == 6:  # Building
+            k = params.building_k
+        elif cls == 3:
+            k = params.base_k3
+        elif cls == 4:
+            k = params.base_k4
+        elif cls == 5:
+            k = params.base_k5
+        else:
+            k = 0.0
+        extinction += weight * k
+
+    # Apply global density scaling (optional)
+    # if params.density_weight > 0:
+    #     extinction *= (1 + params.density_weight * voxel.get('density', 1))
+
+    return extinction
 
 # --- Beer-Lambert Ray Marching with Tunable Parameters ---
 def beer_lambert_ray_march(voxel_grid, min_bounds, voxel_size, ray_origin, direction_vector, max_distance, params, step=0.5):

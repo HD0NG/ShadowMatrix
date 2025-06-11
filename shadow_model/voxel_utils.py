@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
+from collections import defaultdict, Counter
 
 # --- Model Parameters Class ---
 class ModelParams:
@@ -7,6 +8,7 @@ class ModelParams:
                  base_k3=0.4,
                  base_k4=0.4,
                  base_k5=0.4,
+                 building_k=8.0,
                  vegetation_weight=1.2,
                  density_weight=0.8,
                  shadow_gamma=1.5):
@@ -34,22 +36,45 @@ def determine_voxel_size(points, multiplier=10):
     return voxel_size
 
 # --- Voxelization ---
+# def voxelize(points, classifications, voxel_size):
+#     min_bounds = points.min(axis=0)
+#     voxel_indices = np.floor((points - min_bounds) / voxel_size).astype(int)
+#     voxel_dict = {}
+#     for idx, cls in zip(voxel_indices, classifications):
+#         key = tuple(idx)
+#         voxel_dict.setdefault(key, []).append(cls)
+#     voxel_grid = {}
+#     for voxel_idx, cls_list in voxel_dict.items():
+#         classes, counts = np.unique(cls_list, return_counts=True)
+#         # print(classes, counts)
+#         majority_class = classes[np.argmax(counts)]
+#         voxel_grid[voxel_idx] = {
+#             'class': majority_class,
+#             'density': np.max(counts)  # For density weighting
+#         }
+#     return voxel_grid, min_bounds
+def compute_voxel_class_weights(class_list):
+    total = len(class_list)
+    counter = Counter(class_list)
+    return {int(cls): count / total for cls, count in counter.items()}
+
 def voxelize(points, classifications, voxel_size):
     min_bounds = points.min(axis=0)
     voxel_indices = np.floor((points - min_bounds) / voxel_size).astype(int)
+
     voxel_dict = {}
     for idx, cls in zip(voxel_indices, classifications):
         key = tuple(idx)
         voxel_dict.setdefault(key, []).append(cls)
+
     voxel_grid = {}
     for voxel_idx, cls_list in voxel_dict.items():
-        classes, counts = np.unique(cls_list, return_counts=True)
-        # print(classes, counts)
-        majority_class = classes[np.argmax(counts)]
+        class_weights = compute_voxel_class_weights(cls_list)
         voxel_grid[voxel_idx] = {
-            'class': majority_class,
-            'density': np.max(counts)  # For density weighting
+            'classes': class_weights,
+            'density': len(cls_list)
         }
+
     return voxel_grid, min_bounds
 
 def expand_target_area(voxel_grid, min_bounds, voxel_size, target_coords, target_z, target_voxel_radius=2):
@@ -77,3 +102,16 @@ def expand_target_area(voxel_grid, min_bounds, voxel_size, target_coords, target
                     del voxel_grid[voxel_key]  # Remove obstacles around the target
 
     return voxel_grid
+
+# def build_voxel_grid(points, classifications, voxel_size):
+#     voxel_grid = {}
+#     min_bounds = points.min(axis=0)
+
+#     for pt, cls in zip(points, classifications):
+#         voxel_idx = tuple(np.floor((pt - min_bounds) / voxel_size).astype(int))
+#         if voxel_idx not in voxel_grid:
+#             voxel_grid[voxel_idx] = {'points': [], 'classes': Counter()}
+#         voxel_grid[voxel_idx]['points'].append(pt)
+#         voxel_grid[voxel_idx]['classes'][cls] += 1
+
+#     return voxel_grid, min_bounds

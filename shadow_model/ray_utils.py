@@ -60,6 +60,11 @@ def get_voxel_extinction(voxel, params):
 
     return extinction
 
+def voxel_weighting(pos, voxel_idx, voxel_size, min_bounds):
+    center = min_bounds + (np.array(voxel_idx) + 0.5) * voxel_size
+    dist = np.linalg.norm(pos - center)
+    return np.clip(1 - dist / (np.sqrt(3) * voxel_size / 2), 0, 1)  # normalized
+
 # --- Beer-Lambert Ray Marching with Tunable Parameters ---
 def beer_lambert_ray_march(voxel_grid, min_bounds, voxel_size, ray_origin, direction_vector, max_distance, params, step=0.5):
     transmission = 1.0
@@ -71,6 +76,9 @@ def beer_lambert_ray_march(voxel_grid, min_bounds, voxel_size, ray_origin, direc
         
         if voxel_idx in voxel_grid:
             extinction = get_voxel_extinction(voxel_grid[voxel_idx], params)
+            # 🔥 Apply distance-based weight
+            weight = voxel_weighting(position, voxel_idx, voxel_size, min_bounds)
+            k_weighted = extinction * weight
             if extinction == np.inf:  # Hit building
                 transmission = 0
                 break
@@ -79,6 +87,15 @@ def beer_lambert_ray_march(voxel_grid, min_bounds, voxel_size, ray_origin, direc
     
     return transmission
 
+def jittered_directions(base_dir, num_samples=5, spread_deg=1.0):
+    directions = []
+    for _ in range(num_samples):
+        jitter = np.random.normal(0, np.radians(spread_deg), size=3)
+        jittered_dir = base_dir + jitter
+        jittered_dir /= np.linalg.norm(jittered_dir)
+        directions.append(jittered_dir)
+    return directions
+
 def create_transmission_matrix(altitude_range, azimuth_range, voxel_grid, min_bounds, voxel_size, target_coords, target_z, radius, params):
     matrix = np.zeros((len(altitude_range), len(azimuth_range)))
 
@@ -86,8 +103,10 @@ def create_transmission_matrix(altitude_range, azimuth_range, voxel_grid, min_bo
         for j, azimuth in enumerate(azimuth_range):
             dir_vec = compute_direction_vector(azimuth, altitude)
             ray_origin = np.array([target_coords[0], target_coords[1], target_z])
-            trans = beer_lambert_ray_march(voxel_grid, min_bounds, voxel_size, ray_origin, dir_vec, radius, params)
-            matrix[i, j] = trans
+            directions = jittered_directions(dir_vec, num_samples=7)
+            transmissions = [beer_lambert_ray_march(voxel_grid, min_bounds, voxel_size,ray_origin, d, radius, params)for d in directions]
+            # trans = beer_lambert_ray_march(voxel_grid, min_bounds, voxel_size, ray_origin, dir_vec, radius, params)
+            matrix[i, j] = np.mean(transmissions)
     
     return matrix
 

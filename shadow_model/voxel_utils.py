@@ -78,6 +78,21 @@ def voxelize(points, classifications, voxel_size):
 
     return voxel_grid, min_bounds
 
+def fill_building_voxel_columns(voxel_grid):
+    filled = set()
+    for (i, j, k), class_weights in voxel_grid.items():
+        if class_weights.get(6, 0) > 0.5:  # Mostly building
+            for kk in range(0, k):  # Everything below
+                idx = (i, j, kk)
+                if idx in voxel_grid:
+                    voxel_grid[idx][6] = max(voxel_grid[idx].get(6, 0), 0.9)
+                else:
+                    voxel_grid[idx] = {6: 1.0}
+                filled.add(idx)
+    return voxel_grid
+
+
+
 def expand_target_area(voxel_grid, min_bounds, voxel_size, target_coords, target_z, target_voxel_radius=2):
     """
     Clears (empties) voxels around the target point to prevent immediate self-blocking.

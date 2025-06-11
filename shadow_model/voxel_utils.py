@@ -15,6 +15,7 @@ class ModelParams:
         self.base_k3 = base_k3
         self.base_k4 = base_k4
         self.base_k5 = base_k5
+        self.building_k = building_k
         self.vegetation_weight = vegetation_weight
         self.density_weight = density_weight
         self.shadow_gamma = shadow_gamma
